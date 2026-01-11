@@ -1,0 +1,39 @@
+# Docker Compose Overlay: Caddy (Automatic HTTPS)
+# Usage: docker compose -f docker-compose.yml -f docker-compose.caddy.yml up -d
+#
+# Caddy provides automatic HTTPS via Let's Encrypt or ZeroSSL
+# 
+# RATE LIMIT WARNING:
+# Let's Encrypt allows only 5 duplicate certificates per week.
+# For testing, set ACME_CA in .env to use staging:
+#   ACME_CA=https://acme-staging-v02.api.letsencrypt.org/directory
+# Or use ZeroSSL (no rate limits for first 3 certs):
+#   ACME_CA=https://acme.zerossl.com/v2/DV90
+
+services:
+  caddy:
+    image: caddy:2-alpine
+    container_name: ai-swarm-caddy
+    ports:
+      - "80:80"
+      - "443:443"
+    volumes:
+      - ./docker/caddy/Caddyfile:/etc/caddy/Caddyfile:ro
+      - caddy_data:/data
+      - caddy_config:/config
+    environment:
+      - PORTAL_DOMAIN=${PORTAL_DOMAIN:-localhost}
+      - WEB_DOMAIN=${WEB_DOMAIN:-localhost}
+      - TEMPORAL_DOMAIN=${TEMPORAL_DOMAIN:-temporal.localhost}
+      - ACME_EMAIL=${ACME_EMAIL:-}
+      - ACME_CA=${ACME_CA:-}
+    depends_on:
+      - portal
+    networks:
+      - ai-swarm-network
+    restart: unless-stopped
+volumes:
+  caddy_data:
+    name: ai_swarm_caddy_data
+  caddy_config:
+    name: ai_swarm_caddy_config

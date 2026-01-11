@@ -1,0 +1,272 @@
+
+
+services:
+  # ==========================================================================
+  # TEMPORAL - Workflow Orchestration
+  # ==========================================================================
+  temporal:
+    image: temporalio/auto-setup:latest
+    container_name: temporal
+    ports:
+      - "7233:7233" # gRPC frontend
+    environment:
+      - DB=postgres12
+      - DB_PORT=5432
+      - POSTGRES_USER=temporal
+      - POSTGRES_PWD=temporal
+      - POSTGRES_SEEDS=postgres
+      - DYNAMIC_CONFIG_FILE_PATH=config/dynamicconfig/development.yaml
+    depends_on:
+      - postgres
+    networks:
+      - ai-swarm-network
+    volumes:
+      - ./docker/temporal/dynamicconfig:/etc/temporal/config/dynamicconfig
+    healthcheck:
+      test: ["CMD", "temporal", "operator", "cluster", "health", "--address", "temporal:7233"]
+      interval: 10s
+      timeout: 5s
+      retries: 30
+  # ==========================================================================
+  # TEMPORAL WEB UI
+  # ==========================================================================
+  temporal-ui:
+    image: temporalio/ui:latest
+    container_name: temporal-ui
+    # Ports exposed via proxy overlays (local, caddy, nginx, traefik)
+    environment:
+      - TEMPORAL_ADDRESS=temporal:7233
+      - TEMPORAL_CORS_ORIGINS=http://localhost:3000,https://${PORTAL_DOMAIN:-localhost}
+      - TEMPORAL_UI_PUBLIC_PATH=/temporal
+    depends_on:
+      - temporal
+    networks:
+      - ai-swarm-network
+  # ==========================================================================
+  # POSTGRES - Temporal persistence
+  # ==========================================================================
+  postgres:
+    image: postgres:15-alpine
+    container_name: temporal-postgres
+    environment:
+      POSTGRES_USER: temporal
+      POSTGRES_PASSWORD: temporal
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    networks:
+      - ai-swarm-network
+  # ==========================================================================
+  # REDIS - Caching and ephemeral state
+  # ==========================================================================
+  redis:
+    image: redis:7-alpine
+    container_name: ai-swarm-redis
+    ports:
+      - "6379:6379"
+    volumes:
+      - redis_data:/data
+    command: redis-server --appendonly yes
+    networks:
+      - ai-swarm-network
+  # ==========================================================================
+  # DOCKER SOCKET PROXY - Security (v3.0.0)
+  # ==========================================================================
+  socket-proxy:
+    image: tecnativa/docker-socket-proxy
+    container_name: ai-swarm-socket-proxy
+    environment:
+      - CONTAINERS=1
+      - POST=1
+      - EXEC=1
+      - BUILD=0
+      - NETWORKS=0
+      - VOLUMES=0
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock:ro
+    networks:
+      - ai-swarm-network
+    restart: unless-stopped
+  # ==========================================================================
+  # BUILDER SERVICE - Persistent Build Environment (v3.0.0)
+  # ==========================================================================
+  builder:
+    image: ghcr.io/ai-swarm-dev/builder:${IMAGE_TAG:-3.0.0}
+    build:
+      context: .
+      dockerfile: docker/builder/Dockerfile
+    container_name: ai-swarm-builder
+    volumes:
+      - ${PROJECT_DIR:-.}:/project:rw # Same mount as workers for worktree access
+      - tools_data:/opt/ai-swarm/tools
+      - cache_data:/opt/ai-swarm/cache
+      # Workspace root for multi-project support (generic path)
+      - ${WORKSPACE_ROOT:-./workspace}:/apps:rw
+    networks:
+      - ai-swarm-network
+    user: "1001:1001"
+    restart: unless-stopped
+  # ==========================================================================
+  # PLAYWRIGHT SERVICE - Browser Testing (v3.0.0)
+  # ==========================================================================
+  playwright:
+    image: ghcr.io/ai-swarm-dev/playwright:${IMAGE_TAG:-3.0.0}
+    build:
+      context: .
+      dockerfile: docker/playwright/Dockerfile
+    container_name: ai-swarm-playwright
+    volumes:
+      - ${PROJECT_DIR:-.}:/project:ro # Same mount as workers (read-only for verification)
+    networks:
+      - ai-swarm-network
+    restart: unless-stopped
+  # ==========================================================================
+  # AI SWARM WORKER (Replicated Service) - v3.0.0
+  # ==========================================================================
+  worker:
+    image: ghcr.io/ai-swarm-dev/worker:${IMAGE_TAG:-3.0.0}
+    build:
+      context: .
+      dockerfile: docker/worker/Dockerfile
+    # container_name: incompatible with replicas, Docker will assign ai-swarm-worker-1, etc.
+    deploy:
+      replicas: ${WORKER_COUNT:-4}
+      restart_policy:
+        condition: any
+    environment:
+      # WORKER_ID is set dynamically by entrypoint based on HOSTNAME
+      - TEMPORAL_ADDRESS=temporal:7233
+      - TEMPORAL_NAMESPACE=ai-swarm
+      - REDIS_URL=redis://redis:6379
+      - POSTGRES_HOST=postgres
+      - POSTGRES_PORT=5432
+      - POSTGRES_USER=temporal
+      - POSTGRES_PASSWORD=temporal
+      - POSTGRES_DB=postgres
+      - SCM_PROVIDER=${SCM_PROVIDER}
+      - SCM_TOKEN=${SCM_TOKEN}
+      - SCM_ORG=${SCM_ORG}
+      - SCM_PROJECT=${SCM_PROJECT}
+      - SCM_REPO=${SCM_REPO}
+      - PROJECT_DIR=/project
+      - WORKSPACE_ROOT=/apps
+      - CONTEXT_FOLDER=${CONTEXT_FOLDER:-docs/context}
+      - AI_CONTEXT_FOLDER=${AI_CONTEXT_FOLDER:-.aicontext}
+      - CHAT_MAX_AGE_DAYS=${CHAT_MAX_AGE_DAYS:-90}
+      - Z_AI_API_KEY=${Z_AI_API_KEY}
+      - CLAUDE_AUTH_MODE=${CLAUDE_AUTH_MODE:-oauth}
+      - EMAIL_API_KEY=${EMAIL_API_KEY}
+      - EMAIL_PROVIDER=${EMAIL_PROVIDER}
+      - EMAIL_FROM=${EMAIL_FROM}
+      - EMAIL_TO=${EMAIL_TO}
+      - DEPLOY_DIR=${DEPLOY_DIR:-}
+      - DEPLOY_HOST=${DEPLOY_HOST:-}
+      - DEPLOY_USER=${DEPLOY_USER:-}
+      - DEPLOY_SERVICES=${DEPLOY_SERVICES:-}
+      - APP_URL=${APP_URL:-}
+      - VERIFICATION_URL=${VERIFICATION_URL:-}
+      - SKIP_EXTERNAL_CI=${SKIP_EXTERNAL_CI:-false}
+      - DEPLOY_CONTAINER=${DEPLOY_CONTAINER:-ai-swarm-app}
+    depends_on:
+      temporal:
+        condition: service_healthy
+      redis:
+        condition: service_started
+    volumes:
+      # v3.0.0: Hostname-based Isolation
+      # All workers share this volume but use unique subdirs (managed by entrypoint)
+      - workers_home:/home/workers_root
+      # Shared OAuth credentials for Claude/Gemini
+      - workers_oauth:/home/shared_oauth
+      - ${PROJECT_DIR:-.}:/project:rw
+      # Workspace root for multi-project support (generic path)
+      - ${WORKSPACE_ROOT:-./workspace}:/apps:rw
+      # SSH keys for deployment (generated by setup.sh)
+      - ${SSH_KEY_PATH:-~/.ssh/ai-swarm-deploy}:/home/worker/.ssh/id_ed25519:ro
+      - ${SSH_KNOWN_HOSTS:-~/.ssh/known_hosts}:/home/worker/.ssh/known_hosts:ro
+    user: "1001:1001"
+    networks:
+      - ai-swarm-network
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+    restart: unless-stopped
+  # ==========================================================================
+  # AI SWARM PORTAL (Dashboard)
+  # ==========================================================================
+  portal:
+    image: ghcr.io/ai-swarm-dev/portal:${IMAGE_TAG:-3.0.0}
+    build:
+      context: .
+      dockerfile: docker/portal/Dockerfile
+    container_name: ai-swarm-portal
+    environment:
+      - TEMPORAL_ADDRESS=temporal:7233
+      - TEMPORAL_NAMESPACE=ai-swarm
+      - REDIS_URL=redis://redis:6379
+      - POSTGRES_HOST=postgres
+      - POSTGRES_PORT=5432
+      - POSTGRES_USER=temporal
+      - POSTGRES_PASSWORD=temporal
+      - POSTGRES_DB=postgres
+      - PORTAL_API_KEY=${PORTAL_API_KEY}
+      - Z_AI_API_KEY=${Z_AI_API_KEY}
+      - NEXTAUTH_URL=${NEXTAUTH_URL}
+      - NEXTAUTH_SECRET=${NEXTAUTH_SECRET}
+      # Sovereign Auth (v3.0.0) doesn't require Google OAuth or ALLOWED_EMAILS list
+      - PROJECT_DIR=/project
+      - WORKSPACE_ROOT=/apps
+      - CONTEXT_FOLDER=${CONTEXT_FOLDER:-docs/context}
+      - HOSTNAME=0.0.0.0
+      # Temporal UI URL: priority is TEMPORAL_UI_URL > PORTAL_DOMAIN/temporal > localhost
+      - TEMPORAL_UI_URL=${TEMPORAL_UI_URL:-}
+      - PORTAL_DOMAIN=${PORTAL_DOMAIN:-}
+    depends_on:
+      temporal:
+        condition: service_healthy
+      redis:
+        condition: service_started
+      postgres:
+        condition: service_started
+    volumes:
+      - portal_home:/home/node
+      - ${PROJECT_DIR:-.}:/project:ro
+      # Workspace root for multi-project support (read-only for portal)
+      - ${WORKSPACE_ROOT:-./workspace}:/apps:ro
+      # v3.0.0: Mount shared OAuth volume to support Claude CLI in Portal
+      - workers_oauth:/home/shared_oauth:ro
+      # v3.0.0: Mount scripts directory for sovereign-login and other CLI tools
+      - ./scripts:/app/scripts:ro
+    user: "1000:1000"
+    networks:
+      - ai-swarm-network
+    # Traefik labels moved to docker-compose.traefik.yml
+    restart: unless-stopped
+# ==========================================================================
+# VOLUMES
+# ==========================================================================
+volumes:
+  postgres_data:
+    name: ai_swarm_postgres
+  redis_data:
+    name: ai_swarm_redis
+  # v3.0.0: New volumes for sidecar architecture
+  project_data:
+    name: ai_swarm_project_data
+  tools_data:
+    name: ai_swarm_tools_data
+  cache_data:
+    name: ai_swarm_cache_data
+  # v3.0.0: Scaling & Auth
+  workers_home:
+    name: ai_swarm_workers_home
+  workers_oauth:
+    name: ai_swarm_workers_oauth
+  portal_home:
+    name: ai_swarm_portal_home
+# ==========================================================================
+# NETWORKS
+# ==========================================================================
+networks:
+  ai-swarm-network:
+    name: ai_swarm_network
+    driver: bridge
+  # External networks (traefik-public) moved to proxy overlays

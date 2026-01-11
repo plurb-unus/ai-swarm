@@ -1,0 +1,17 @@
+constraintDefaultingPollInterval:
+  - value: 1s
+    constraints: {}
+matchingNumTaskqueueReadPartitions:
+  - value: 4
+    constraints: {}
+matchingNumTaskqueueWritePartitions:
+  - value: 4
+    constraints: {}
+
+# Workflow retention - 90 days (in nanoseconds)
+# 90 days = 90 * 24 * 60 * 60 * 1000000000 = 7776000000000000
+history.workflowExecutionRetentionPeriod:
+  - value: "2160h"  # 90 days in hours
+    constraints:
+      namespace: "ai-swarm"
+

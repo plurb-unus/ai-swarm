@@ -1,0 +1,30 @@
+# Docker Compose Overlay: Nginx (Manual Certificates)
+# Usage: docker compose -f docker-compose.yml -f docker-compose.nginx.yml up -d
+#
+# Nginx with manual SSL certificate management
+#
+# CERTIFICATE SETUP:
+# Place your SSL certificates in docker/nginx/certs/:
+#   - server.crt - Certificate file
+#   - server.key - Private key file
+#
+# For self-signed testing:
+#   openssl req -x509 -nodes -days 365 -newkey rsa:2048 \
+#     -keyout docker/nginx/certs/server.key \
+#     -out docker/nginx/certs/server.crt
+
+services:
+  nginx:
+    image: nginx:alpine
+    container_name: ai-swarm-nginx
+    ports:
+      - "80:80"
+      - "443:443"
+    volumes:
+      - ./docker/nginx/nginx.conf:/etc/nginx/nginx.conf:ro
+      - ./docker/nginx/certs:/etc/nginx/certs:ro
+    depends_on:
+      - portal
+    networks:
+      - ai-swarm-network
+    restart: unless-stopped

@@ -1,0 +1,33 @@
+# Docker Compose Overlay: Traefik Integration
+# Usage: docker compose -f docker-compose.yml -f docker-compose.traefik.yml up -d
+#
+# Prerequisites:
+# - Traefik running on external network (${TRAEFIK_NETWORK})
+# - DNS records pointing to your server
+# - Certificate resolver configured in Traefik
+
+services:
+  portal:
+    networks:
+      - traefik-public
+    labels:
+      - "traefik.enable=true"
+      - "traefik.http.routers.ai-swarm-portal.rule=Host(`${PORTAL_DOMAIN}`)"
+      - "traefik.http.routers.ai-swarm-portal.entrypoints=websecure"
+      - "traefik.http.routers.ai-swarm-portal.tls.certresolver=${CERT_RESOLVER:-dns-cloudflare}"
+      - "traefik.http.routers.ai-swarm-portal.service=ai-swarm-portal-svc"
+      - "traefik.http.services.ai-swarm-portal-svc.loadbalancer.server.port=3000"
+  temporal-ui:
+    networks:
+      - traefik-public
+    labels:
+      - "traefik.enable=true"
+      - "traefik.http.routers.ai-swarm-temporal.rule=Host(`${TEMPORAL_DOMAIN:-temporal.localhost}`)"
+      - "traefik.http.routers.ai-swarm-temporal.entrypoints=websecure"
+      - "traefik.http.routers.ai-swarm-temporal.tls.certresolver=${CERT_RESOLVER:-dns-cloudflare}"
+      - "traefik.http.routers.ai-swarm-temporal.service=ai-swarm-temporal-svc"
+      - "traefik.http.services.ai-swarm-temporal-svc.loadbalancer.server.port=8080"
+networks:
+  traefik-public:
+    external: true
+    name: ${TRAEFIK_NETWORK:-web-gateway}

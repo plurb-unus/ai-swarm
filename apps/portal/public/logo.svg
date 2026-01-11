@@ -1,0 +1,40 @@
+<svg width="500" height="550" viewBox="0 0 500 550" xmlns="http://www.w3.org/2000/svg">
+  <!-- Background is transparent by default -->
+  
+  <g transform="translate(250, 220)">
+    <!-- Hexagon Border (Solid White) -->
+    <polygon points="0,-180 155,-90 155,90 0,180 -155,90 -155,-90" 
+             fill="none" stroke="white" stroke-width="6"/>
+    
+    <!-- Inner Atomic/Swarm Ellipses -->
+    <g fill="none" stroke="white" stroke-width="4">
+      <!-- Horizontal Ellipse -->
+      <ellipse cx="0" cy="0" rx="120" ry="45" />
+      <circle cx="120" cy="0" r="6" fill="white" stroke="none" />
+      <circle cx="-120" cy="0" r="6" fill="white" stroke="none" />
+      
+      <!-- 60 Degree Ellipse -->
+      <g transform="rotate(60)">
+        <ellipse cx="0" cy="0" rx="120" ry="45" />
+        <circle cx="120" cy="0" r="6" fill="white" stroke="none" />
+        <circle cx="-120" cy="0" r="6" fill="white" stroke="none" />
+      </g>
+      
+      <!-- 120 Degree Ellipse -->
+      <g transform="rotate(120)">
+        <ellipse cx="0" cy="0" rx="120" ry="45" />
+        <circle cx="120" cy="0" r="6" fill="white" stroke="none" />
+        <circle cx="-120" cy="0" r="6" fill="white" stroke="none" />
+      </g>
+    </g>
+  </g>
+
+  <!-- Typography -->
+  <text x="250" y="490" 
+        text-anchor="middle" 
+        font-family="Segoe UI, Helvetica, Arial, sans-serif" 
+        font-weight="900" 
+        font-size="60" 
+        fill="white" 
+        style="letter-spacing: 5px;">AI SWARM</text>
+</svg>

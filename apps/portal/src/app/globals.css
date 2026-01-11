@@ -1,0 +1,156 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  :root {
+    /* Light Mode (Zinc based) */
+    --background: 244 244 245;
+    /* zinc-100 */
+    --foreground: 9 9 11;
+    /* zinc-950 */
+
+    --card: 255 255 255;
+    --card-foreground: 9 9 11;
+
+    --popover: 255 255 255;
+    --popover-foreground: 9 9 11;
+
+    --primary: 24 24 27;
+    /* zinc-900 (Black/Dark Grey) for high contrast */
+    --primary-foreground: 250 250 250;
+    /* zinc-50 */
+
+    --muted: 228 228 231;
+    /* zinc-200 */
+    --muted-foreground: 113 113 122;
+    /* zinc-500 */
+
+    --accent: 228 228 231;
+    /* zinc-200 */
+    --accent-foreground: 24 24 27;
+
+    --destructive: 239 68 68;
+    --destructive-foreground: 250 250 250;
+
+    --border: 228 228 231;
+    /* zinc-200 */
+    --input: 228 228 231;
+    --ring: 24 24 27;
+    /* zinc-900 */
+
+    --radius: 0.5rem;
+  }
+
+  .dark {
+    /* Dark Mode (Zinc based) */
+    --background: 9 9 11;
+    /* zinc-950 */
+    --foreground: 250 250 250;
+    /* zinc-50 */
+
+    --card: 24 24 27;
+    /* zinc-900 */
+    --card-foreground: 250 250 250;
+
+    --popover: 24 24 27;
+    --popover-foreground: 250 250 250;
+
+    --primary: 250 250 250;
+    /* zinc-50 (White) */
+    --primary-foreground: 24 24 27;
+    /* zinc-900 */
+
+    --muted: 39 39 42;
+    /* zinc-800 */
+    --muted-foreground: 161 161 170;
+    /* zinc-400 */
+
+    --accent: 39 39 42;
+    /* zinc-800 */
+    --accent-foreground: 250 250 250;
+
+    --destructive: 127 29 29;
+    --destructive-foreground: 250 250 250;
+
+    --border: 39 39 42;
+    /* zinc-800 */
+    --input: 39 39 42;
+    --ring: 212 212 216;
+    /* zinc-300 */
+  }
+}
+
+@layer base {
+  body {
+    @apply bg-background text-foreground;
+  }
+}
+
+@layer components {
+
+  /* Cards */
+  .card {
+    @apply bg-card text-card-foreground border border-border rounded-xl shadow-sm hover:shadow-md transition-all p-4;
+  }
+
+  /* Badges */
+  .badge {
+    @apply inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ring-1 ring-inset;
+  }
+
+  /* Status Color Mappings (Support both TitleCase and lowercase) */
+  .badge-Running,
+  .badge-running {
+    @apply bg-zinc-100 text-zinc-800 ring-zinc-600/20 dark:bg-zinc-800 dark:text-zinc-300 dark:ring-zinc-600/40;
+  }
+
+  .badge-Completed,
+  .badge-completed {
+    @apply bg-emerald-50 text-emerald-700 ring-emerald-600/20 dark:bg-emerald-900/20 dark:text-emerald-400 dark:ring-emerald-500/20;
+  }
+
+  .badge-Failed,
+  .badge-failed {
+    @apply bg-red-50 text-red-700 ring-red-600/10 dark:bg-red-900/20 dark:text-red-400 dark:ring-red-400/20;
+  }
+
+  .badge-Terminated,
+  .badge-terminated {
+    @apply bg-zinc-50 text-zinc-600 ring-zinc-500/10 dark:bg-zinc-900/20 dark:text-zinc-400 dark:ring-zinc-400/20;
+  }
+
+  .badge-pending {
+    @apply bg-amber-50 text-amber-800 ring-amber-600/20 dark:bg-amber-900/20 dark:text-amber-400 dark:ring-amber-400/20;
+  }
+
+  /* Buttons */
+  .btn {
+    @apply inline-flex items-center justify-center rounded-md text-sm font-medium ring-offset-background transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50 h-9 px-4 py-2;
+  }
+
+  .btn-primary {
+    @apply btn bg-primary text-primary-foreground hover:bg-primary/90;
+  }
+
+  .btn-ghost {
+    @apply btn hover:bg-accent hover:text-accent-foreground;
+  }
+
+  .btn-danger {
+    @apply btn bg-destructive text-destructive-foreground hover:bg-destructive/90;
+  }
+
+  .btn-secondary {
+    @apply btn bg-muted text-muted-foreground hover:bg-accent hover:text-accent-foreground;
+  }
+
+  /* Inputs */
+  .input {
+    @apply flex h-9 w-full rounded-md border border-input bg-transparent px-3 py-1 text-sm shadow-sm transition-colors file:border-0 file:bg-transparent file:text-sm file:font-medium placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring disabled:cursor-not-allowed disabled:opacity-50;
+  }
+
+  textarea.input {
+    @apply min-h-[60px];
+  }
+}

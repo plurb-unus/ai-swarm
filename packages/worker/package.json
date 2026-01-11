@@ -1,0 +1,33 @@
+{
+    "name": "@ai-swarm/worker",
+    "version": "3.0.1",
+    "description": "Temporal worker for AI Swarm",
+    "main": "./dist/index.js",
+    "type": "module",
+    "scripts": {
+        "build": "tsc",
+        "dev": "tsx watch src/index.ts",
+        "start": "node dist/index.js",
+        "lint": "eslint src/"
+    },
+    "dependencies": {
+        "@ai-swarm/shared": "workspace:*",
+        "@ai-swarm/workflows": "workspace:*",
+        "@opentelemetry/api": "^1.7.0",
+        "@opentelemetry/auto-instrumentations-node": "^0.40.0",
+        "@opentelemetry/exporter-metrics-otlp-grpc": "^0.46.0",
+        "@opentelemetry/exporter-trace-otlp-grpc": "^0.46.0",
+        "@opentelemetry/resources": "^1.18.0",
+        "@opentelemetry/sdk-metrics": "^1.18.0",
+        "@opentelemetry/sdk-node": "^0.46.0",
+        "@opentelemetry/semantic-conventions": "^1.18.0",
+        "@temporalio/client": "^1.9.0",
+        "@temporalio/worker": "^1.9.0",
+        "ioredis": "^5.3.0"
+    },
+    "devDependencies": {
+        "@types/node": "^20.10.0",
+        "tsx": "^4.6.0",
+        "typescript": "^5.3.0"
+    }
+}

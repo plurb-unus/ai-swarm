@@ -1,0 +1,19 @@
+# Docker Compose Overlay: Local Development
+# Usage: docker compose -f docker-compose.yml -f docker-compose.local.yml up -d
+#
+# Direct port exposure for local evaluation (no SSL)
+# NOTE: WebAuthn/Passkeys work on localhost but NOT over LAN (http://[LAN_IP])
+
+services:
+  portal:
+    ports:
+      - "${PORTAL_PORT:-3000}:3000"
+
+  temporal-ui:
+    ports:
+      - "${TEMPORAL_UI_PORT:-8233}:8080"
+
+  # Web marketing site (optional for local dev)
+  web:
+    ports:
+      - "${WEB_PORT:-3001}:3000"

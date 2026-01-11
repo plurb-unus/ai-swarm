@@ -1,0 +1,23 @@
+{
+    "name": "@ai-swarm/cli",
+    "version": "3.0.0",
+    "description": "AI Swarm CLI - Submit tasks and manage workflows",
+    "type": "module",
+    "bin": {
+        "ai-swarm": "./dist/index.js"
+    },
+    "scripts": {
+        "build": "tsc",
+        "dev": "tsx src/index.ts",
+        "start": "node dist/index.js"
+    },
+    "dependencies": {
+        "@temporalio/client": "^1.9.0",
+        "commander": "^11.1.0"
+    },
+    "devDependencies": {
+        "@types/node": "^20.10.0",
+        "tsx": "^4.6.0",
+        "typescript": "^5.3.0"
+    }
+}

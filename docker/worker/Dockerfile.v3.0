@@ -1,0 +1,103 @@
+# AI Swarm v2 - Worker Dockerfile
+FROM node:20-slim
+
+# Install system dependencies + common language runtimes (minimal)
+RUN apt-get update && apt-get install -y \
+    git \
+    curl \
+    openssh-client \
+    ca-certificates \
+    build-essential \
+    python3 \
+    python3-pip \
+    python3-venv \
+    && rm -rf /var/lib/apt/lists/*
+
+# Install Go 1.25.5 (matching host)
+RUN curl -L https://go.dev/dl/go1.25.5.linux-arm64.tar.gz | tar -C /usr/local -xz
+ENV PATH="/usr/local/go/bin:${PATH}"
+
+# Install Rust to system-wide location (accessible by worker user)
+ENV RUSTUP_HOME=/usr/local/rustup
+ENV CARGO_HOME=/usr/local/cargo
+ENV PATH="/usr/local/cargo/bin:${PATH}"
+RUN curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh -s -- -y --no-modify-path \
+    && chmod -R a+rx /usr/local/rustup /usr/local/cargo
+
+# Install Playwright and Claude Code (Z.ai CLI)
+# Note: GitLab/Azure DevOps/GitHub operations use REST API (no CLI needed)
+RUN npm install -g playwright @anthropic-ai/claude-code && \
+    npx playwright install-deps && \
+    npx playwright install chromium
+
+# Copy Claude Code settings template
+COPY packages/workflows/templates/claude-settings.json /opt/ai-swarm/templates/claude-settings.json
+
+# Copy AI Swarm identity template (for Claude Code workers)
+COPY docker/worker/templates/ai-swarm.local.md /opt/ai-swarm/templates/ai-swarm.local.md
+
+# Copy role-specific prompts
+COPY packages/shared/prompts/ /opt/ai-swarm/prompts/
+
+# Install Gemini CLI globally
+# The Gemini CLI is installed via: npm install -g @google/gemini-cli
+RUN npm install -g @google/gemini-cli
+
+# Install pnpm
+RUN npm install -g pnpm
+
+# Set working directory
+WORKDIR /app
+
+# Copy package files
+COPY package.json pnpm-workspace.yaml pnpm-lock.yaml* ./
+COPY packages/shared/package.json ./packages/shared/
+COPY packages/workflows/package.json ./packages/workflows/
+COPY packages/worker/package.json ./packages/worker/
+
+# Install dependencies
+RUN pnpm install --frozen-lockfile || pnpm install
+
+# Copy source code
+COPY tsconfig.base.json ./
+COPY packages/shared/ ./packages/shared/
+COPY packages/workflows/ ./packages/workflows/
+COPY packages/worker/ ./packages/worker/
+
+# Build all packages
+RUN pnpm --filter @ai-swarm/shared build
+RUN pnpm --filter @ai-swarm/workflows build
+RUN pnpm --filter @ai-swarm/worker build
+
+# SSH client already installed above for deployment via SSH
+
+# Create non-root user and .claude directory
+RUN useradd -m -s /bin/bash worker && \
+    mkdir -p /home/worker/.claude && \
+    chown -R worker:worker /home/worker/.claude
+# USER worker
+
+# Copy Claude Code settings template and create entrypoint
+COPY packages/workflows/templates/claude-settings.json /opt/ai-swarm/templates/claude-settings.json
+
+# Create entrypoint script that configures Claude Code with Z.ai API key
+RUN echo '#!/bin/bash\n\
+if [ -n "$Z_AI_API_KEY" ]; then\n\
+  envsubst < /opt/ai-swarm/templates/claude-settings.json > /home/worker/.claude/settings.json\n\
+  chown worker:worker /home/worker/.claude/settings.json\n\
+fi\n\
+exec "$@"' > /entrypoint.sh && chmod +x /entrypoint.sh
+
+# Install envsubst (part of gettext)
+RUN apt-get update && apt-get install -y gettext-base && rm -rf /var/lib/apt/lists/*
+
+# Set environment variables
+ENV NODE_ENV=production
+ENV TEMPORAL_ADDRESS=temporal:7233
+ENV TEMPORAL_NAMESPACE=ai-swarm
+ENV HOME=/home/worker
+
+ENTRYPOINT ["/entrypoint.sh"]
+
+# Start the worker
+CMD ["node", "packages/worker/dist/index.js"]

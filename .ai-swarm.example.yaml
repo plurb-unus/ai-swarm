@@ -1,0 +1,51 @@
+# .ai-swarm.example.yaml - AI Swarm Deployment Configuration Template
+# -----------------------------------------------------------------------------
+# This file provides a template for configuring how AI Swarm manages your project.
+# Copy this file to 'ai-swarm.deploy.yaml' in your project root to customize.
+# -----------------------------------------------------------------------------
+
+# Schema version (currently "1")
+version: "1"
+
+# Deploy Mode: Determines how code reaches the production environment.
+#   - git-direct: Deploys directly into the git repository (git pull + rebuild).
+#                 Best for single-folder workflows where dev and prod are the same.
+#   - rsync:      Syncs from the local worktree to a separate build folder on the server.
+#                 Best for decoupled workflows (e.g., building locally or in CI).
+#   - auto:       Let AI Swarm attempt to detect the best mode (legacy behavior).
+mode: "git-direct"
+
+# Build Configuration: Defines how to prepare the application before deployment.
+build:
+  # The working directory relative to project root where build commands run.
+  base: "."
+  # The command to execute to build the project (e.g., 'npm run build', 'go build').
+  # Leave empty if no build step is required.
+  command: "npm run build"
+  # The directory containing the build output (primarily used in 'rsync' mode).
+  outputDir: "dist"
+
+# Deployment Configuration: Defines the final activation steps on the server.
+deploy:
+  # List specific Docker services to rebuild/restart.
+  # If empty, all services in the docker-compose.yml will be processed.
+  services:
+    - "web"
+    - "api"
+  # Command to run immediately BEFORE the main deployment.
+  # Use for migrations, cleaning temporary files, etc.
+  preCommand: "pnpm prisma generate"
+  # The main deployment command. 
+  # Must match a safe pattern (e.g., 'docker compose up -d --build').
+  command: "docker compose up -d --build"
+  # Command to run immediately AFTER the deployment completes.
+  # Use for post-deploy metrics, health checks, or cleanup.
+  postCommand: "docker system prune -f"
+
+# Verification Configuration: Defines how to confirm the deployment was successful.
+verify:
+  # Set to true to trigger an automated Playwright browser test after deployment.
+  browserTest: false
+  # A URL that AI Swarm will curl to verify a 200 OK response.
+  # Example: "https://your-app.example.com/api/health"
+  healthUrl: ""
